@@ -1,0 +1,8 @@
+framework module "Appnet" {
+	header "ref.h"
+    header "Appnet.objc.h"
+    header "Universe.objc.h"
+    header "Appnet.h"
+
+    export *
+}

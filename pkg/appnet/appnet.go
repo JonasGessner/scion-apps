@@ -82,6 +82,9 @@ const (
 var defNetwork Network
 var initOnce sync.Once
 
+var dispSocket string
+var sciondAddr string
+
 // DefNetwork initialises and returns the singleton default Network.
 // Typically, this will not be needed for applications directly, as they can
 // use the simplified Dial/Listen functions provided here.
@@ -99,6 +102,11 @@ func Dial(address string) (*snet.Conn, error) {
 		return nil, err
 	}
 	return DialAddr(raddr)
+}
+
+func DialWrapped(address string) (*ConnWrapper, error) {
+    c, e := Dial(address)
+    return &ConnWrapper{c}, e
 }
 
 // DialAddr connects to the address (on the SCION/UDP network).
@@ -153,6 +161,53 @@ func Listen(listen *net.UDPAddr) (*snet.Conn, error) {
 func ListenPort(port uint16) (*snet.Conn, error) {
 	return Listen(&net.UDPAddr{Port: int(port)})
 }
+
+func ListenPortWrapped(port int) (*ConnWrapper, error) {
+    c, e := ListenPort(uint16(port))
+    return &ConnWrapper{c}, e
+}
+
+func RunServer(port int) error {
+    conn, err := ListenPort(uint16(port))
+    if err != nil {
+        return err
+    }
+    defer conn.Close()
+    
+    buffer := make([]byte, 16*1024)
+    for {
+        n, from, err := conn.ReadFrom(buffer)
+        if err != nil {
+            return err
+        }
+        data := buffer[:n]
+        fmt.Printf("Received %s: %s\n", from, data)
+    }
+}
+
+func RunClient(address string) error {
+    conn, err := Dial(address)
+    if err != nil {
+        return err
+    }
+    defer conn.Close()
+    
+    nBytes, err := conn.Write([]byte("hello world"))
+    if err != nil {
+        return err
+    }
+    fmt.Printf("Done. Wrote %d bytes.\n", nBytes)
+    return nil
+}
+
+// Check just ensures the error is nil, or complains and quits
+func check(e error) {
+    if e != nil {
+        fmt.Fprintln(os.Stderr, "Fatal error. Exiting.", "err", e)
+        os.Exit(1)
+    }
+}
+
 
 // resolveLocal returns the source IP address for traffic to raddr. If
 // raddr.NextHop is set, it's used to determine the local IP address.
@@ -216,10 +271,12 @@ func initDefNetwork() error {
 }
 
 func findSciond(ctx context.Context) (sciond.Connector, error) {
-	address, ok := os.LookupEnv("SCION_DAEMON_ADDRESS")
-	if !ok {
-		address = sciond.DefaultAPIAddress
-	}
+// Reading the environment is broken with this API on iOS
+//	address, ok := os.LookupEnv("SCION_DAEMON_ADDRESS")
+//	if !ok {
+//		address = sciond.DefaultAPIAddress
+//	}
+    address := sciondAddr
 	sciondConn, err := sciond.NewService(address).Connect(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to SCIOND at %s (override with SCION_DAEMON_ADDRESS): %w", address, err)
@@ -236,11 +293,21 @@ func findDispatcher() (reliable.Dispatcher, error) {
 	return dispatcher, nil
 }
 
+func SetDispatcherSocket(sock string) {
+    dispSocket = sock
+}
+
+func SetSciondAddress(addr string) {
+    sciondAddr = addr
+}
+
 func findDispatcherSocket() (string, error) {
-	path, ok := os.LookupEnv("SCION_DISPATCHER_SOCKET")
-	if !ok {
-		path = reliable.DefaultDispPath
-	}
+// Reading the environment is broken with this API on iOS
+//	path, ok := os.LookupEnv("SCION_DISPATCHER_SOCKET")
+//	if !ok {
+//		path = reliable.DefaultDispPath
+//	}
+    path := dispSocket
 	err := statSocket(path)
 	if err != nil {
 		return "", fmt.Errorf("error looking for SCION dispatcher socket at %s (override with SCION_DISPATCHER_SOCKET): %w", path, err)

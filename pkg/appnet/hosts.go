@@ -47,13 +47,13 @@ const (
 // This is analogous to net.SplitHostPort, which however refuses to handle SCION addresses.
 // The address can be of the form of a SCION address (i.e. of the form "ISD-AS,[IP]:port")
 // or in the form of "hostname:port".
-func SplitHostPort(hostport string) (host, port string, err error) {
-	match := hostPortRegexp.FindStringSubmatch(hostport)
-	if match != nil {
-		return match[hostPortRegexpHostIndex], match[hostPortRegexpPortIndex], nil
-	}
-	return "", "", fmt.Errorf("appnet.SplitHostPort: invalid address")
-}
+//func SplitHostPort(hostport string) (host string, port string, err error) {
+//	match := hostPortRegexp.FindStringSubmatch(hostport)
+//	if match != nil {
+//		return match[hostPortRegexpHostIndex], match[hostPortRegexpPortIndex], nil
+//	}
+//	return "", "", fmt.Errorf("appnet.SplitHostPort: invalid address")
+//}
 
 // ResolveUDPAddr parses the address and resolves the hostname.
 // The address can be of the form of a SCION address (i.e. of the form "ISD-AS,[IP]:port")

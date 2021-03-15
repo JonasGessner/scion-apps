@@ -61,3 +61,5 @@ _examples/shttp/server/server
 # IntelliJ IDEA workspace
 .idea/
 .DS_Store
+.gomobilebuild/
+Appnet.xcframework

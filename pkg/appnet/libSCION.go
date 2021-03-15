@@ -93,6 +93,16 @@ func SetDispatcherConfigPath(path string) {
 
 }
 
+func runDispatcher() {
+	err := a_disp.Dispatcher_RealMain()
+	fmt.Printf("ERROR: Dispatcher terminated: %s\n", err)
+}
+
+func runSciond() {
+	err := a_daemon.Sciond_RealMain()
+	fmt.Printf("ERROR: Sciond terminated: %s\n", err)
+}
+
 func realMain() error {
 	statusPages := service.StatusPages{
 		"info":      service.NewInfoHandler(),
@@ -101,22 +111,18 @@ func realMain() error {
 		"topology":  itopo.TopologyHandler,
 		"log/level": log.ConsoleLevel.ServeHTTP,
 	}
+	
 	if err := statusPages.Register(http.DefaultServeMux, globalCfg.General.ID); err != nil {
 		return serrors.WrapStr("registering status pages", err)
 	}
 
 	fmt.Println("Starting dispatcher")
-
-	go a_disp.Dispatcher_RealMain()
+	go runDispatcher()
 	
 	time.Sleep(1)
 
 	fmt.Println("Starting daemon")
-
-	err := a_daemon.Sciond_RealMain()
-
-	fmt.Printf("Daemon done: %s\n", err)
-
+	runSciond()
 
 	return nil
 }

@@ -23,3 +23,6 @@ require (
 )
 
 replace github.com/scionproto/scion => ./scion
+
+// Needed because by default the linked version of sys somehow crashes on iOS...
+replace golang.org/x/sys => github.com/golang/sys v0.0.0-20210315160823-c6e025ad8005

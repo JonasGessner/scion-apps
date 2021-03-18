@@ -22,8 +22,14 @@ function buildCatalyst {
     GO11MODULE=on gomobile bind -target=ios/catalyst_amd64 -o _AppnetCatalyst.framework -macosversion 10.15 ../pkg/appnet && rm -rf AppnetCatalyst.framework && mv _AppnetCatalyst.framework AppnetCatalyst.framework && mv AppnetCatalyst.framework/Versions/A/_AppnetCatalyst AppnetCatalyst.framework/Versions/A/AppnetCatalyst.a
 }
 
+function buildMac {
+    echo "Building mac (x86_64)"
+    GO11MODULE=on gomobile bind -target=ios/macos_amd64 -o _AppnetMac.framework -macosversion 10.15 ../pkg/appnet && rm -rf AppnetMac.framework && mv _AppnetMac.framework AppnetMac.framework && mv AppnetMac.framework/Versions/A/_AppnetMac AppnetMac.framework/Versions/A/AppnetMac.a
+}
 
-if [[ "$1" == "catalyst" ]]; then
+if [[ "$1" == "mac" ]]; then
+    buildMac
+elif [[ "$1" == "catalyst" ]]; then
     buildCatalyst
 elif [[ "$1" == "ios" ]]; then
     buildiOS
@@ -45,6 +51,6 @@ cd ..
 
 echo "Making xcframework"
 
-xcodebuild -create-xcframework -library .gomobilebuild/AppnetSim.framework/Versions/A/AppnetSim.a -headers .gomobilebuild/AppnetSim.framework/Versions/A/Headers -library .gomobilebuild/AppnetIOS.framework/Versions/A/AppnetIOS.a -headers .gomobilebuild/AppnetIOS.framework/Versions/A/Headers -library .gomobilebuild/AppnetCatalyst.framework/Versions/A/AppnetCatalyst.a -headers .gomobilebuild/AppnetCatalyst.framework/Versions/A/Headers -output _Appnet.xcframework && rm -rf Appnet.xcframework && mv _Appnet.xcframework Appnet.xcframework
+xcodebuild -create-xcframework -library .gomobilebuild/AppnetSim.framework/Versions/A/AppnetSim.a -headers .gomobilebuild/AppnetSim.framework/Versions/A/Headers -library .gomobilebuild/AppnetIOS.framework/Versions/A/AppnetIOS.a -headers .gomobilebuild/AppnetIOS.framework/Versions/A/Headers -library .gomobilebuild/AppnetCatalyst.framework/Versions/A/AppnetCatalyst.a -headers .gomobilebuild/AppnetCatalyst.framework/Versions/A/Headers -library .gomobilebuild/AppnetMac.framework/Versions/A/AppnetMac.a -headers .gomobilebuild/AppnetMac.framework/Versions/A/Headers -output _Appnet.xcframework && rm -rf Appnet.xcframework && mv _Appnet.xcframework Appnet.xcframework
 
 echo Done

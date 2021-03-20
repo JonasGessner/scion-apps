@@ -104,11 +104,6 @@ func Dial(address string) (*snet.Conn, error) {
 	return DialAddr(raddr)
 }
 
-func DialWrapped(address string) (*ConnWrapper, error) {
-    c, e := Dial(address)
-    return &ConnWrapper{c}, e
-}
-
 // DialAddr connects to the address (on the SCION/UDP network).
 //
 // If no path is specified in raddr, DialAddr will choose the first available path.
@@ -160,11 +155,6 @@ func Listen(listen *net.UDPAddr) (*snet.Conn, error) {
 // See note on wildcard addresses in the package documentation.
 func ListenPort(port uint16) (*snet.Conn, error) {
 	return Listen(&net.UDPAddr{Port: int(port)})
-}
-
-func ListenPortWrapped(port int) (*ConnWrapper, error) {
-    c, e := ListenPort(uint16(port))
-    return &ConnWrapper{c}, e
 }
 
 func RunServer(port int) error {

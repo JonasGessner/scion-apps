@@ -78,6 +78,20 @@ type ReadResult struct {
     Err error
 }
 
+func DialWrapped(address string) (*ConnWrapper, error) {
+    c, e := Dial(address)
+    return &ConnWrapper{c}, e
+}
+
+func ListenPortWrapped(port int) (*ConnWrapper, error) {
+    c, e := ListenPort(uint16(port))
+    return &ConnWrapper{c}, e
+}
+
+func (w ConnWrapper) LocalAddress() *AddressWrapper {
+    return &AddressWrapper{w.conn.LocalScionAddr()};
+}
+
 func (w ConnWrapper) Read(buffer []byte) *ReadResult {
     n, a, e := w.conn.ReadFrom(buffer)
     
@@ -96,8 +110,15 @@ func (w ConnWrapper) Close() {
     w.conn.Close()
 }
 
-
-
 func (w AddressWrapper) AsString() string {
     return w.addr.String()
+}
+
+func AddressWrapperFromString(str string) (*AddressWrapper, error) {
+    raddr, err := ResolveUDPAddr(str)
+	if err != nil {
+		return nil, err
+	}
+
+    return &AddressWrapper{raddr}, nil
 }

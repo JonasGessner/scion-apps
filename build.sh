@@ -39,9 +39,10 @@ elif  [[ "$1" == "no-build" ]]; then
     echo "Skipping build"
 elif [ "$#" -eq 0 ]; then
     echo "Building all"
-    
+    echo "Skipping catalyst"
+
     buildSim
-    buildCatalyst
+    buildMac
     buildiOS
 else
     echo "Invalid arguments"

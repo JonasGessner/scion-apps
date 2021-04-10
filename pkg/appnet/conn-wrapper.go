@@ -55,11 +55,77 @@ import (
 
 	"github.com/scionproto/scion/go/lib/snet"
 )
+import (
+	"errors"
+	"time"
+)
 
-//export appnet_test
-func appnet_test() {}
+type PathWrapper struct {
+    path snet.Path
+}
 
-func Appnet_Empty() {}
+type PathMetadataWrapper struct {
+    meta *snet.PathMetadata
+}
+
+type PathListWrapper struct {
+	paths []snet.Path
+}
+
+func (w PathListWrapper)Count() int {
+	return len(w.paths)
+}
+
+func (w PathListWrapper)GetPathAt(index int) *PathWrapper {
+	return &PathWrapper{ w.paths[index] }
+}
+
+func QueryPathsWrapped(addr *AddressWrapper) (*PathListWrapper, error) {
+	udpAddr, ok := addr.addr.(*snet.UDPAddr)
+
+	if !ok {
+		return nil, errors.New("Can't look up paths for address that is not snet.UDPAddr")
+	}
+
+	spaths, err := QueryPaths(udpAddr.IA)
+	if err != nil {
+		return nil, err
+	}
+	
+    return &PathListWrapper { spaths }, nil
+}
+
+// In bytes
+func (m PathMetadataWrapper)GetMTU() int32 {
+    return int32(m.meta.MTU);
+} 
+
+// In microseconds
+func (m PathMetadataWrapper)GetLatencyAt(index int) int32 {
+    return int32(time.Duration(m.meta.Latency[index])*time.Microsecond)
+}
+
+func (m PathWrapper)Length() int {
+	return len(m.path.Path().Raw)
+}
+
+func (m PathWrapper)GetFingerprint() string {
+	return string(snet.Fingerprint(m.path))
+}
+
+// In kbit/s
+func (m PathMetadataWrapper)GetBandwidthAt(index int) int64 {
+    return int64(m.meta.Bandwidth[index])
+}
+
+// Unix timestamp in s at UTC
+func (m PathMetadataWrapper)GetExpiry() int64 {
+    return m.meta.Expiry.UTC().Unix()
+}
+
+func (p PathWrapper)GetMetadata() *PathMetadataWrapper {
+    return &PathMetadataWrapper { p.path.Metadata() }
+}
 
 // Wrapper around snet.conn to provide ObjC interoperability
 type ConnWrapper struct {
@@ -78,9 +144,20 @@ type ReadResult struct {
     Err error
 }
 
-func DialWrapped(address string) (*ConnWrapper, error) {
-    c, e := Dial(address)
+func DialWrappedWithPath(address string, path *PathWrapper) (*ConnWrapper, error) {
+	raddr, err := ResolveUDPAddr(address)
+	if err != nil {
+		return nil, err
+	}
+	if path != nil {
+		SetPath(raddr, path.path)
+	}
+	c, e :=  DialAddr(raddr)
     return &ConnWrapper{c}, e
+}
+
+func DialWrapped(address string) (*ConnWrapper, error) {
+    return DialWrappedWithPath(address, nil)
 }
 
 func ListenPortWrapped(port int) (*ConnWrapper, error) {

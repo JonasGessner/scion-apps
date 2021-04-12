@@ -58,6 +58,8 @@ import (
 import (
 	"errors"
 	"time"
+
+	"github.com/scionproto/scion/go/lib/spath"
 )
 
 type PathWrapper struct {
@@ -84,7 +86,7 @@ func QueryPathsWrapped(addr *AddressWrapper) (*PathListWrapper, error) {
 	udpAddr, ok := addr.addr.(*snet.UDPAddr)
 
 	if !ok {
-		return nil, errors.New("Can't look up paths for address that is not snet.UDPAddr")
+		return nil, errors.New("Failed conversion from net.Addr to snet.UDPAddr in AddressWrapper")
 	}
 
 	spaths, err := QueryPaths(udpAddr.IA)
@@ -109,8 +111,8 @@ func (m PathWrapper)Length() int {
 	return len(m.path.Path().Raw)
 }
 
-func (m PathWrapper)GetFingerprint() string {
-	return string(snet.Fingerprint(m.path))
+func (m PathWrapper)GetRaw() *PathRawWrapper {
+	return &PathRawWrapper { m.path.Path() }
 }
 
 // In kbit/s
@@ -144,6 +146,10 @@ type ReadResult struct {
     Err error
 }
 
+type PathRawWrapper struct {
+	path spath.Path
+}
+
 func DialWrappedWithPath(address string, path *PathWrapper) (*ConnWrapper, error) {
 	raddr, err := ResolveUDPAddr(address)
 	if err != nil {
@@ -165,8 +171,12 @@ func ListenPortWrapped(port int) (*ConnWrapper, error) {
     return &ConnWrapper{c}, e
 }
 
-func (w ConnWrapper) LocalAddress() *AddressWrapper {
-    return &AddressWrapper{w.conn.LocalScionAddr()};
+func (w ConnWrapper) GetRemoteAddress() *AddressWrapper {
+    return &AddressWrapper{w.conn.RemoteAddr()}
+}
+
+func (w ConnWrapper) GetLocalAddress() *AddressWrapper {
+    return &AddressWrapper{w.conn.LocalScionAddr()}
 }
 
 func (w ConnWrapper) Read(buffer []byte) *ReadResult {
@@ -185,6 +195,53 @@ func (w ConnWrapper) WriteTo(buffer []byte, address *AddressWrapper) (int, error
 
 func (w ConnWrapper) Close() {
     w.conn.Close()
+}
+
+// Gomobile messes up on a scalar uint8. It can't do any other unsigned types, so go for int16.
+func (p PathRawWrapper) GetType() int16 {
+	return int16(p.path.Type)
+}
+
+func (p PathRawWrapper) GetTypeString() string {
+	return p.path.Type.String()
+}
+
+func (p PathRawWrapper) GetRaw() []byte {
+	return p.path.Raw
+}
+
+// func (w AddressWrapper) SetPath(path *PathWrapper) error {
+// 	udpAddr, ok := w.addr.(*snet.UDPAddr)
+
+// 	if !ok {
+// 		return errors.New("Failed conversion from net.Addr to snet.UDPAddr in AddressWrapper")
+// 	}
+
+// 	udpAddr.Path = path.path.Path()
+
+// 	return nil
+// }
+
+func (w AddressWrapper) SetPathRaw(path *PathRawWrapper) error {
+	udpAddr, ok := w.addr.(*snet.UDPAddr)
+
+	if !ok {
+		return errors.New("Failed conversion from net.Addr to snet.UDPAddr in AddressWrapper")
+	}
+
+	udpAddr.Path = path.path
+
+	return nil
+}
+
+func (w AddressWrapper) GetRawPath(path *PathWrapper) (*PathRawWrapper, error) {
+	udpAddr, ok := w.addr.(*snet.UDPAddr)
+
+	if !ok {
+		return nil, errors.New("Failed conversion from net.Addr to snet.UDPAddr in AddressWrapper")
+	}
+
+	return &PathRawWrapper { udpAddr.Path }, nil
 }
 
 func (w AddressWrapper) AsString() string {

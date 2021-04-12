@@ -61,6 +61,10 @@ cd ..
 
 echo "Making xcframework"
 
-xcodebuild -create-xcframework -library .gomobilebuild/AppnetSim.framework/Versions/A/AppnetSim.a -headers .gomobilebuild/AppnetSim.framework/Versions/A/Headers -library .gomobilebuild/AppnetIOS.framework/Versions/A/AppnetIOS.a -headers .gomobilebuild/AppnetIOS.framework/Versions/A/Headers -library .gomobilebuild/AppnetCatalyst.framework/Versions/A/AppnetCatalyst.a -headers .gomobilebuild/AppnetCatalyst.framework/Versions/A/Headers -library .gomobilebuild/AppnetMac.framework/Versions/A/AppnetMac.a -headers .gomobilebuild/AppnetMac.framework/Versions/A/Headers -library .gomobilebuild/AppnetMacArm.framework/Versions/A/AppnetMacArm.a -headers .gomobilebuild/AppnetMacArm.framework/Versions/A/Headers -output _Appnet.xcframework && rm -rf Appnet.xcframework && mv _Appnet.xcframework Appnet.xcframework
+lipo -create .gomobilebuild/AppnetMac.framework/Versions/A/AppnetMac.a .gomobilebuild/AppnetMacArm.framework/Versions/A/AppnetMacArm.a -output _AppnetMacFat.a
+
+xcodebuild -create-xcframework -library .gomobilebuild/AppnetSim.framework/Versions/A/AppnetSim.a -headers .gomobilebuild/AppnetSim.framework/Versions/A/Headers -library .gomobilebuild/AppnetIOS.framework/Versions/A/AppnetIOS.a -headers .gomobilebuild/AppnetIOS.framework/Versions/A/Headers -library .gomobilebuild/AppnetCatalyst.framework/Versions/A/AppnetCatalyst.a -headers .gomobilebuild/AppnetCatalyst.framework/Versions/A/Headers -library _AppnetMacFat.a -headers .gomobilebuild/AppnetMac.framework/Versions/A/Headers -output _Appnet.xcframework && rm -rf Appnet.xcframework && mv _Appnet.xcframework Appnet.xcframework
+
+rm _AppnetMacFat.a
 
 echo Done

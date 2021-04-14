@@ -48,9 +48,9 @@ elif [ "$#" -eq 0 ]; then
     echo "Building all"
     echo "Skipping catalyst"
 
-    buildSim
+#    buildSim
     buildMacX86
-    buildMacArm
+#    buildMacArm
     buildiOS
 else
     echo "Invalid arguments"

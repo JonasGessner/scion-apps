@@ -105,12 +105,17 @@ func (m PathMetadataWrapper)GetMTU() int32 {
 } 
 
 // In microseconds
-func (m PathMetadataWrapper)GetLatencyAt(index int) int32 {
-    return int32(time.Duration(m.meta.Latency[index])*time.Microsecond)
+func (m PathMetadataWrapper)GetLatencyAt(index int) int64 {
+    return time.Duration(m.meta.Latency[index]).Microseconds()
+}
+
+func (m PathMetadataWrapper)GetInterfaceStringAt(index int) string {
+	return m.meta.Interfaces[index].String()
 }
 
 func (m PathWrapper)Length() int {
-	return len(m.path.Path().Raw)
+	if m.path.Metadata() == nil { return 0 }
+	return len(m.path.Metadata().Interfaces)
 }
 
 func (m PathWrapper)GetRaw() *PathRawWrapper {
@@ -152,20 +157,32 @@ type PathRawWrapper struct {
 	path spath.Path
 }
 
-func DialWrappedWithPath(address string, path *PathWrapper) (*ConnWrapper, error) {
+func dialWrappedWithPath(udpAddr *snet.UDPAddr, path *PathWrapper) (*ConnWrapper, error) {
+	if path != nil {
+		SetPath(udpAddr, path.path)
+	}
+
+	c, e :=  DialAddr(udpAddr)
+    
+	return &ConnWrapper{c}, e
+}
+
+func DialWrappedWithPath(raddr *AddressWrapper, path *PathWrapper) (*ConnWrapper, error) {
+	udpAddr, ok := raddr.addr.(*snet.UDPAddr)
+
+	if !ok {
+		return nil, errors.New("Failed conversion from net.Addr to snet.UDPAddr in AddressWrapper")
+	}
+
+	return dialWrappedWithPath(udpAddr, path)
+}
+
+func DialWrapped(address string) (*ConnWrapper, error) {
 	raddr, err := ResolveUDPAddr(address)
 	if err != nil {
 		return nil, err
 	}
-	if path != nil {
-		SetPath(raddr, path.path)
-	}
-	c, e :=  DialAddr(raddr)
-    return &ConnWrapper{c}, e
-}
-
-func DialWrapped(address string) (*ConnWrapper, error) {
-    return DialWrappedWithPath(address, nil)
+    return dialWrappedWithPath(raddr, nil)
 }
 
 func ListenPortWrapped(port int) (*ConnWrapper, error) {
@@ -211,6 +228,7 @@ func (p PathRawWrapper) GetTypeString() string {
 func (m PathRawWrapper) GetDecodedStringRepresentation() string {
 	return m.path.String()
 }
+
 
 func (m PathRawWrapper) GetOnlyHopFields() ([]byte, error) {
 	if m.path.Type != scion.PathType { return nil, errors.New("Invalid path type") }

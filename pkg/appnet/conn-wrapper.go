@@ -59,6 +59,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/scionproto/scion/go/lib/slayers/path"
+	"github.com/scionproto/scion/go/lib/slayers/path/scion"
 	"github.com/scionproto/scion/go/lib/spath"
 )
 
@@ -206,8 +208,39 @@ func (p PathRawWrapper) GetTypeString() string {
 	return p.path.Type.String()
 }
 
+func (m PathRawWrapper) GetDecodedStringRepresentation() string {
+	return m.path.String()
+}
+
+func (m PathRawWrapper) GetOnlyHopFields() ([]byte, error) {
+	if m.path.Type != scion.PathType { return nil, errors.New("Invalid path type") }
+
+	var sp1 scion.Decoded
+	if err := sp1.DecodeFromBytes(m.path.Raw); err != nil {
+		return nil, err
+	}
+
+	len := int(sp1.NumHops)*path.HopLen
+
+	b := make([]byte, len)
+	if err := sp1.SerializeHopsTo(b); err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
 func (p PathRawWrapper) GetRaw() []byte {
 	return p.path.Raw
+}
+
+func (p PathRawWrapper) Reversed() (*PathRawWrapper, error) {
+	cpy := p.path.Copy()
+	err := cpy.Reverse()
+	if err != nil {
+		return nil, err
+	}
+	return &PathRawWrapper { cpy }, nil
 }
 
 // func (w AddressWrapper) SetPath(path *PathWrapper) error {
@@ -234,7 +267,7 @@ func (w AddressWrapper) SetPathRaw(path *PathRawWrapper) error {
 	return nil
 }
 
-func (w AddressWrapper) GetRawPath(path *PathWrapper) (*PathRawWrapper, error) {
+func (w AddressWrapper) GetRawPath() (*PathRawWrapper, error) {
 	udpAddr, ok := w.addr.(*snet.UDPAddr)
 
 	if !ok {

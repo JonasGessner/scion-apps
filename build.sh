@@ -67,4 +67,15 @@ xcodebuild -create-xcframework -library .gomobilebuild/AppnetSim.framework/Versi
 
 rm _AppnetMacFat.a
 
+echo "Adding module map"
+
+cat << EOF > Appnet.xcframework/module.modulemap
+module Appnet {
+  umbrella header "ios-arm64/Headers/_AppnetIOS.h"
+
+  export *
+  module * { export * }
+}
+EOF
+
 echo Done

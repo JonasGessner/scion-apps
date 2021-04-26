@@ -109,6 +109,14 @@ func (m PathMetadataWrapper)GetLatencyAt(index int) int64 {
     return time.Duration(m.meta.Latency[index]).Microseconds()
 }
 
+func (m PathMetadataWrapper)GetInterfaceIAAt(index int) string {
+	return m.meta.Interfaces[index].IA.String()
+}
+
+func (m PathMetadataWrapper)GetInterfaceIDAt(index int) int64 {
+	return int64(m.meta.Interfaces[index].ID)
+}
+
 func (m PathMetadataWrapper)GetInterfaceStringAt(index int) string {
 	return m.meta.Interfaces[index].String()
 }

@@ -51,6 +51,7 @@ package appnet
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -59,6 +60,7 @@ import (
 
 	"github.com/scionproto/scion/go/lib/addr"
 	"github.com/scionproto/scion/go/lib/sciond"
+	"github.com/scionproto/scion/go/lib/slayers"
 	"github.com/scionproto/scion/go/lib/snet"
 	"github.com/scionproto/scion/go/lib/snet/addrutil"
 	"github.com/scionproto/scion/go/lib/sock/reliable"
@@ -82,6 +84,11 @@ const (
 var defNetwork Network
 var initOnce sync.Once
 
+type SCMPErrorHandler interface {
+	Handle(err *SCMPError)
+}
+
+var scmpErrorHandler SCMPErrorHandler
 var dispSocket string
 var sciondAddr string
 
@@ -231,6 +238,64 @@ func mustInitDefNetwork() {
 	}
 }
 
+type sCMPHandler struct {
+	nextHandler snet.SCMPHandler
+}
+
+type SCMPInterfaceInfo struct {
+	IA string
+	Interface int64
+}
+
+type SCMPError struct {
+	ErrorDescription string
+	Type int16
+	Code int16
+	Path *PathRawWrapper
+	InterfaceInfo *SCMPInterfaceInfo
+}
+
+func (h sCMPHandler) Handle(pkt *snet.Packet) error {
+	nextResult := h.nextHandler.Handle(pkt)
+
+	scmp, ok := pkt.Payload.(snet.SCMPPayload)
+	if !ok {
+		if nextResult != nil {
+			return nextResult
+		}
+		return errors.New("scmp handler invoked with non-scmp packet")
+	}
+	typeCode := slayers.CreateSCMPTypeCode(scmp.Type(), scmp.Code())
+	// if !typeCode.InfoMsg() {
+	// 	metrics.M.SCMPErrors().Inc()
+	// }
+	if scmpErrorHandler != nil {
+		description := typeCode.String()
+		
+		var ifa *SCMPInterfaceInfo = nil
+
+		switch typeCode.Type() {
+		case slayers.SCMPTypeExternalInterfaceDown:
+			msg := pkt.Payload.(snet.SCMPExternalInterfaceDown)
+			ifa = &SCMPInterfaceInfo { msg.IA.String(), int64(msg.Interface) }
+		
+		case slayers.SCMPTypeInternalConnectivityDown:
+			msg := pkt.Payload.(snet.SCMPInternalConnectivityDown)
+			ifa = &SCMPInterfaceInfo { msg.IA.String(), int64(msg.Egress) }
+		
+		default:
+			break
+		}
+		
+		err := SCMPError { description, int16(typeCode.Type()), int16(typeCode.Code()), &PathRawWrapper { pkt.Path }, ifa }
+
+		scmpErrorHandler.Handle(&err)
+	}
+
+	// Returning an error here surfaces it from the current blocking read() call. We want to exactly NOT do this, so return nil. SCMP errors are routed to the scmpErrorHandler so we don't unnecessarily mess up the read functions with errors that have nothing to do with them
+	return nil
+}
+
 func initDefNetwork() error {
 	ctx, cancel := context.WithTimeout(context.Background(), initTimeout)
 	defer cancel()
@@ -251,11 +316,19 @@ func initDefNetwork() error {
 		return err
 	}
 	pathQuerier := sciond.Querier{Connector: sciondConn, IA: localIA}
-	n := snet.NewNetwork(
-		localIA,
-		dispatcher,
-		sciond.RevHandler{Connector: sciondConn},
-	)
+
+	n := &snet.SCIONNetwork{
+		LocalIA: localIA,
+		Dispatcher: &snet.DefaultPacketDispatcherService{
+			Dispatcher: dispatcher,
+			SCMPHandler: &sCMPHandler {
+				&snet.DefaultSCMPHandler{
+					RevocationHandler: sciond.RevHandler{Connector: sciondConn},
+				},
+			},
+		},
+	}
+
 	defNetwork = Network{Network: n, IA: localIA, PathQuerier: pathQuerier, hostInLocalAS: hostInLocalAS}
 	return nil
 }
@@ -281,6 +354,10 @@ func findDispatcher() (reliable.Dispatcher, error) {
 	}
 	dispatcher := reliable.NewDispatcher(path)
 	return dispatcher, nil
+}
+
+func SetSCMPErrorHandler(handler SCMPErrorHandler) {
+    scmpErrorHandler = handler
 }
 
 func SetDispatcherSocket(sock string) {
